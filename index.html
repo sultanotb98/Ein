@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>عين — تواصل بالرمشة والنظر</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1418; --panel:#182027; --cell:#222c35; --line:#33414d;
+    --text:#f2f5f7; --muted:#9aa8b4;
+    --hl:#ffd23f; --hlbg:#3a3313; --ok:#2ecc71; --no:#ff5c5c; --accent:#4fb3ff;
+    --fs:1;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:"Noto Kufi Arabic", Tahoma, "Segoe UI", sans-serif;}
+  body{display:flex;flex-direction:column;overflow:hidden}
+  button{font-family:inherit}
+
+  /* شريط المرافق */
+  #topbar{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #topbar .brand{font-weight:800;font-size:20px;margin-inline-end:8px}
+  #topbar button{background:var(--cell);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:15px;cursor:pointer}
+  #topbar button:hover{border-color:var(--accent)}
+  #status{margin-inline-start:auto;font-size:14px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .chip{padding:4px 10px;border-radius:99px;background:var(--cell);border:1px solid var(--line)}
+  .chip.good{border-color:var(--ok);color:var(--ok)}
+  .chip.bad{border-color:var(--no);color:var(--no)}
+  .chip.warn{border-color:var(--hl);color:var(--hl)}
+
+  /* الرسالة */
+  #msgbar{display:flex;gap:16px;align-items:stretch;padding:10px 14px;border-bottom:1px solid var(--line)}
+  #msg{flex:1;font-size:calc(34px*var(--fs));font-weight:800;min-height:60px;display:flex;align-items:center;
+    background:#0b1013;border-radius:14px;padding:6px 18px;border:2px solid var(--line)}
+  #msg.fresh{border-color:var(--ok);animation:pulse 1.2s ease-out}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,204,113,.6)}100%{box-shadow:0 0 0 18px rgba(46,204,113,0)}}
+  #history{width:220px;font-size:13px;color:var(--muted);overflow:hidden;max-height:90px}
+  #history div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* اللوحة */
+  #main{flex:1;display:flex;flex-direction:column;padding:12px;gap:10px;min-height:0}
+  #boardTitle{font-size:calc(18px*var(--fs));color:var(--muted);display:flex;gap:10px;align-items:center}
+  #pausedNote{display:none;color:var(--hl);font-weight:600}
+  #board{flex:1;display:grid;gap:12px;min-height:0}
+  .cell{position:relative;background:var(--cell);border:4px solid transparent;border-radius:18px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    font-size:calc(30px*var(--fs));font-weight:700;text-align:center;padding:8px;overflow:hidden;user-select:none;cursor:pointer;transition:transform .1s}
+  .cell .ic{font-size:calc(40px*var(--fs));line-height:1}
+  .cell.hl{border-color:var(--hl);background:var(--hlbg);transform:scale(1.02)}
+  .cell.yes{background:#123222}.cell.no{background:#3a1717}
+  .cell.yes.hl{background:#1d5a37}.cell.no.hl{background:#6a2222}
+  .cell.picked{border-color:var(--ok)!important;background:#1d5a37!important}
+  .cell .fill{position:absolute;inset-inline-start:0;bottom:0;height:8px;width:0;background:var(--hl)}
+  .cell.back{background:#1a2229;color:var(--muted)}
+
+  /* لوحة المفاتيح */
+  #typebar{display:none;font-size:calc(30px*var(--fs));font-weight:700;background:#0b1013;border:2px dashed var(--line);border-radius:14px;padding:6px 16px;min-height:56px}
+  #typebar .caret{display:inline-block;width:3px;height:1em;background:var(--hl);vertical-align:middle;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .kb{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0}
+  .kb-row{display:flex;gap:8px;flex:1;border:4px solid transparent;border-radius:16px;padding:3px;min-height:0}
+  .kb-row.hl{border-color:var(--hl);background:var(--hlbg)}
+  .kb-row .cell{flex:1;font-size:calc(28px*var(--fs));border-radius:12px;border-width:3px}
+  .kb-row .cell.ctl{font-size:calc(19px*var(--fs))}
+  .kb-row .cell.sug{font-size:calc(22px*var(--fs));background:#1b2f3d}
+  .kb-row .cell.ret{flex:.5;color:var(--muted);background:#1a2229}
+
+  /* الكاميرا */
+  #cam{width:130px;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px}
+  #cam video{width:100%;max-height:72px;border-radius:10px;transform:scaleX(-1);background:#000;display:block;aspect-ratio:4/3;object-fit:cover}
+  #cam .meter{position:relative;height:12px;background:#0b1013;border-radius:6px;margin-top:6px;overflow:hidden}
+  #cam .meter i{position:absolute;inset-inline-end:0;top:0;bottom:0;width:0;background:var(--accent)}
+  #cam .meter b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--hl)}
+  #cam .row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
+  #cam.min video{display:none}
+  #gazeInd{font-weight:700;color:var(--text)}
+
+  /* النوافذ */
+  .overlay{position:fixed;inset:0;background:rgba(5,8,10,.92);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+  .overlay.show{display:flex}
+  .dlg{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;width:min(720px,100%);max-height:92vh;overflow:auto}
+  .dlg h2{margin:0 0 10px}
+  .dlg p,.dlg li{color:#cfd8df;line-height:1.9}
+  .dlg .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .btn{background:var(--accent);color:#04131f;border:0;border-radius:12px;padding:12px 20px;font-size:17px;font-weight:700;cursor:pointer}
+  .btn.ghost{background:var(--cell);color:var(--text);border:1px solid var(--line)}
+  .field{display:grid;grid-template-columns:1fr 220px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+  .field label{font-size:15px}
+  .field small{display:block;color:var(--muted);font-size:12px}
+  .field input[type=range]{width:100%}
+  .field select,.field input[type=number]{width:100%;padding:6px;border-radius:8px;background:var(--cell);color:var(--text);border:1px solid var(--line);font-family:inherit}
+  textarea,input[type=text]{width:100%;background:#0b1013;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font-family:inherit;font-size:17px}
+  textarea{min-height:120px}
+
+  /* المعايرة */
+  #calib .big{font-size:34px;font-weight:800;text-align:center;margin:14px 0}
+  #calib .sub{font-size:18px;text-align:center;color:var(--muted)}
+  #calib .cmeter{height:22px;background:#0b1013;border-radius:10px;position:relative;overflow:hidden;margin:16px 0}
+  #calib .cmeter i{position:absolute;inset-inline-end:0;top:0;bottom:0;width:0;background:var(--accent)}
+  .dot{position:fixed;width:46px;height:46px;border-radius:50%;background:var(--hl);box-shadow:0 0 0 10px rgba(255,210,63,.25);display:none;z-index:30;top:50%;transform:translate(-50%,-50%)}
+  .dot.show{display:block;animation:dotp 1s infinite alternate}
+  @keyframes dotp{to{box-shadow:0 0 0 22px rgba(255,210,63,.08)}}
+  #toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--hl);color:var(--text);padding:10px 18px;border-radius:12px;display:none;z-index:40;font-size:16px}
+  /* الجوال */
+  @media (max-width:760px){
+    #topbar{padding:6px 8px;gap:5px}
+    #topbar .brand{font-size:16px;margin:0}
+    #topbar button{padding:6px 8px;font-size:12px;border-radius:8px}
+    #status{width:100%;margin:0;font-size:11px;gap:5px}
+    .chip{padding:2px 7px}
+    #msgbar{padding:6px 8px;gap:8px}
+    #history{display:none}
+    #msg{font-size:calc(22px*var(--fs));min-height:48px;padding:4px 10px}
+    #cam{width:92px;padding:4px}
+    #cam video{max-height:52px}
+    #cam .row{font-size:10px}
+    #main{padding:8px;gap:6px}
+    #board{gap:7px}
+    .cell{font-size:calc(20px*var(--fs));border-radius:12px;border-width:3px;padding:4px}
+    .cell .ic{font-size:calc(28px*var(--fs))}
+    #typebar{font-size:calc(22px*var(--fs));min-height:42px;padding:4px 10px}
+    .kb{gap:4px}.kb-row{gap:4px;padding:2px;border-width:3px}
+    .kb-row .cell{font-size:calc(19px*var(--fs));border-width:2px;border-radius:8px}
+    .kb-row .cell.ctl{font-size:calc(11px*var(--fs))}
+    .kb-row .cell.sug{font-size:calc(14px*var(--fs))}
+    .field{grid-template-columns:1fr}
+    .dlg{padding:14px}
+    #calib .big{font-size:24px}
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <span class="brand">👁 عين</span>
+  <button id="bPause">⏸ إيقاف المسح</button>
+  <button id="bHome">🏠 الرئيسية</button>
+  <button id="bQuick">❓ سؤال سريع</button>
+  <button id="bCalib">🎯 معايرة</button>
+  <button id="bSettings">⚙ الإعدادات</button>
+  <div id="status">
+    <span id="stCam" class="chip">الكاميرا: متوقفة</span>
+    <span id="stCal" class="chip">المعايرة: لم تتم</span>
+    <span id="stFace" class="chip">—</span>
+  </div>
+</div>
+
+<div id="msgbar">
+  <div id="msg">مرحباً 👋</div>
+  <div id="history"></div>
+  <div id="cam">
+  <video id="video" playsinline muted></video>
+  <div class="meter" title="مؤشر إغماض العين"><i id="meterFill"></i><b id="meterThr"></b></div>
+  <div class="row"><span id="eyeState">العين: —</span><span id="gazeInd"></span></div>
+  <div class="row"><span id="fpsTxt"></span><a href="#" id="camToggle" style="color:var(--muted)">تصغير</a></div>
+</div>
+</div>
+
+<div id="main">
+  <div id="boardTitle"><span id="boardName">الرئيسية</span><span id="pausedNote">⏸ المسح متوقف — رمشة طويلة لإعادة التشغيل</span></div>
+  <div id="typebar"></div>
+  <div id="board"></div>
+</div>
+
+
+
+<!-- البداية -->
+<div class="overlay show" id="ovStart">
+  <div class="dlg">
+    <h2>👁 عين — التواصل بالرمشة والنظر</h2>
+    <p>طريقة الاستخدام باختصار:</p>
+    <ul>
+      <li>الخيارات تتظلّل <b>واحداً واحداً</b> تلقائياً.</li>
+      <li>لما يوصل التظليل للخيار المطلوب، المريض <b>يغمّض عينه رمشة طويلة</b> (نصف ثانية تقريباً) ثم يفتحها.</li>
+      <li>صوت <b>«تِك»</b> يعني الرمشة انحسبت ويقدر يفتح عينه. الرمشات الطبيعية القصيرة يتجاهلها البرنامج.</li>
+      <li>في لوحة «نعم / لا» يقدر المريض أيضاً <b>ينظر يمين (نعم) أو يسار (لا)</b> بعد معايرة النظر.</li>
+      <li>للتجربة بدون كاميرا: زر <b>المسافة</b> في الكيبورد يعمل كرمشة.</li>
+    </ul>
+    <p style="color:var(--muted);font-size:14px">ثبّت الجهاز أمام وجه المريض بمسافة 40–70 سم، مع إضاءة على الوجه (لا تكون الإضاءة خلفه). كل المعالجة تتم داخل الجهاز، ولا تُرسل أي صورة لأي مكان.</p>
+    <div class="btns">
+      <button class="btn" id="bStart">▶ تشغيل الكاميرا والبدء</button>
+      <button class="btn ghost" id="bNoCam">تجربة بدون كاميرا</button>
+    </div>
+    <p id="startErr" style="color:var(--no)"></p>
+  </div>
+</div>
+
+<!-- المعايرة -->
+<div class="overlay" id="calib">
+  <div class="dlg">
+    <h2>🎯 المعايرة</h2>
+    <div class="big" id="cBig">جاهز؟</div>
+    <div class="sub" id="cSub">المرافق يضغط «ابدأ»، والمريض يتبع التعليمات الصوتية.</div>
+    <div class="cmeter"><i id="cMeter"></i></div>
+    <div class="sub" id="cResult"></div>
+    <div class="btns">
+      <button class="btn" id="cBlink">١) معايرة الرمشة</button>
+      <button class="btn" id="cGaze">٢) معايرة النظر (يمين/يسار)</button>
+      <button class="btn ghost" id="cClose">إغلاق</button>
+    </div>
+  </div>
+</div>
+<div class="dot" id="dot"></div>
+
+<!-- الإعدادات -->
+<div class="overlay" id="ovSettings">
+  <div class="dlg">
+    <h2>⚙ الإعدادات</h2>
+    <div class="field"><label>سرعة المسح<small>المدة على كل خيار</small></label><div><input type="range" id="sScan" min="700" max="4000" step="100"><span id="vScan"></span></div></div>
+    <div class="field"><label>مدة الرمشة المطلوبة<small>أطول من الرمشة الطبيعية. زِدها لو صار اختيار بالغلط</small></label><div><input type="range" id="sMin" min="300" max="1500" step="50"><span id="vMin"></span></div></div>
+    <div class="field"><label>أقصى مدة للرمشة<small>إغماض أطول من كذا يُلغى (لو نام المريض مثلاً)</small></label><div><input type="range" id="sMax" min="1500" max="8000" step="250"><span id="vMax"></span></div></div>
+    <div class="field"><label>عدد الدورات قبل إيقاف المسح<small>يوقف المسح لو ما اختار شيء، ويرجع برمشة طويلة</small></label><select id="sCycles"><option>2</option><option>3</option><option>4</option><option>5</option><option value="99">لا يتوقف</option></select></div>
+    <div class="field"><label>العين المستخدمة<small>«أي عين» مفيدة لو وحدة من العينين أضعف</small></label><select id="sEye"><option value="avg">العينين معاً</option><option value="max">أي عين (الأقوى)</option></select></div>
+    <div class="field"><label>نطق اسم الخيار أثناء المسح<small>مفيد لو النظر ضعيف</small></label><select id="sAud"><option value="0">لا</option><option value="1">نعم</option></select></div>
+    <div class="field"><label>تأكيد قبل نطق الرسالة</label><select id="sConf"><option value="0">لا</option><option value="1">نعم</option></select></div>
+    <div class="field"><label>نعم/لا بالنظر يمين ويسار<small>يحتاج معايرة النظر</small></label><select id="sGaze"><option value="1">مفعّل</option><option value="0">متوقف</option></select></div>
+    <div class="field"><label>مدة تثبيت النظر للاختيار</label><div><input type="range" id="sDwell" min="800" max="3000" step="100"><span id="vDwell"></span></div></div>
+    <div class="field"><label>سرعة الصوت</label><div><input type="range" id="sRate" min="0.6" max="1.3" step="0.05"><span id="vRate"></span></div></div>
+    <div class="field"><label>حجم الخط</label><div><input type="range" id="sFont" min="0.7" max="1.6" step="0.05"><span id="vFont"></span></div></div>
+    <p style="margin-bottom:4px">⭐ عباراتي (كل عبارة في سطر، حتى 11 عبارة):</p>
+    <textarea id="sMine"></textarea>
+    <p id="voiceNote" style="font-size:13px;color:var(--muted)"></p>
+    <div class="btns">
+      <button class="btn" id="sSave">حفظ</button>
+      <button class="btn ghost" id="sTestVoice">🔊 تجربة الصوت</button>
+      <button class="btn ghost" id="sReset">استرجاع الافتراضي</button>
+    </div>
+  </div>
+</div>
+
+<!-- سؤال سريع -->
+<div class="overlay" id="ovQuick">
+  <div class="dlg">
+    <h2>❓ سؤال سريع للمريض</h2>
+    <p>اكتب السؤال أو قله بالمايك. لو فيه «ولا» أو «أو»، البرنامج يطلّع الخيارات تلقائياً. مثال: «تبي ماء ولا عصير ولا شاي؟»</p>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="qText" placeholder="السؤال…">
+      <button class="btn ghost" id="qMic" title="تحويل الكلام لنص">🎤</button>
+    </div>
+    <p style="margin:12px 0 4px">الخيارات (كل خيار في سطر):</p>
+    <textarea id="qOpts"></textarea>
+    <div class="btns">
+      <button class="btn" id="qGo">ابدأ</button>
+      <button class="btn ghost" id="qExtract">استخراج الخيارات من السؤال</button>
+      <button class="btn ghost" id="qYN">سؤال نعم / لا</button>
+      <button class="btn ghost" id="qCancel">إلغاء</button>
+    </div>
+    <p id="qNote" style="color:var(--muted);font-size:13px"></p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ================= الإعدادات ================= */
+const DEFAULTS = {
+  scanMs:1600, minLong:600, maxLong:4000, maxCycles:3, eyeMode:"avg",
+  auditory:false, confirm:false, gazeOn:true, gazeDwell:1500, rate:0.9, font:1,
+  mine:["أبي أكلم أهلي","شغّلوا القرآن","أبي أشوف الجوال","افتحوا الستارة","سكّروا النور","أبي أطلع برا الغرفة"],
+  calib:{ok:false, open:0.08, closed:0.6},
+  gaze:{ok:false, C:0, R:0.5, L:-0.5},
+  learned:[]
+};
+let S = load();
+function load(){
+  try{ const s = JSON.parse(localStorage.getItem("ein-settings")||"null");
+    if(s) return Object.assign(structuredClone(DEFAULTS), s); }catch(e){}
+  return structuredClone(DEFAULTS);
+}
+function save(){ try{ localStorage.setItem("ein-settings", JSON.stringify(S)); }catch(e){} }
+
+const $ = s => document.querySelector(s);
+const now = () => performance.now();
+function toast(t, ms=2500){ const el=$("#toast"); el.textContent=t; el.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>el.style.display="none", ms); }
+
+/* ================= الصوت ================= */
+let actx = null;
+function tone(f, d=0.12, vol=0.18){
+  if(!actx) return;
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.frequency.value=f; g.gain.value=vol; o.connect(g).connect(actx.destination);
+  const t=actx.currentTime; o.start(t); g.gain.exponentialRampToValueAtTime(0.0001, t+d); o.stop(t+d+0.03);
+}
+const sndReady = ()=>tone(1046,.09);           // الرمشة انحسبت — افتح عينك
+const sndPick  = ()=>{tone(660,.08); setTimeout(()=>tone(990,.12),90);};
+const sndCancel= ()=>tone(220,.25);
+
+let arVoice = null;
+function pickVoice(){
+  const vs = speechSynthesis.getVoices();
+  arVoice = vs.find(v=>/^ar[-_]SA/i.test(v.lang)) || vs.find(v=>/^ar/i.test(v.lang)) || null;
+}
+if("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(t, interrupt=true){
+  if(!("speechSynthesis" in window)) return;
+  if(interrupt) speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang = arVoice ? arVoice.lang : "ar-SA"; if(arVoice) u.voice = arVoice;
+  u.rate = S.rate; speechSynthesis.speak(u);
+  return u;
+}
+let msgActive = false;
+function speakMsg(t){
+  const u = speak(t, true); if(!u) return;
+  msgActive = true; const done = ()=>{ msgActive = false; };
+  u.onend = done; u.onerror = done; setTimeout(done, 15000);
+}
+
+/* ================= اللوحات ================= */
+const BOARDS = {
+  home:{title:"الرئيسية", items:()=>[
+    {label:"نعم / لا", ic:"✅❌", go:"yesno"},
+    {label:"احتياجات", ic:"🥤", go:"needs"},
+    {label:"ألم", ic:"🤕", go:"pain"},
+    {label:"مشاعر", ic:"💬", go:"feel"},
+    {label:"كتابة", ic:"⌨️", go:"kb"},
+    {label:"عباراتي", ic:"⭐", go:"mine"},
+  ]},
+  yesno:{title:"نعم / لا", stay:true, items:()=>[
+    {label:"نعم", ic:"✅", say:"نعم", cls:"yes", gaze:"right"},
+    {label:"لا", ic:"❌", say:"لا", cls:"no", gaze:"left"},
+    {label:"ما أعرف", ic:"🤷", say:"ما أعرف"},
+    {label:"رجوع", ic:"↩", back:true},
+  ]},
+  needs:{title:"احتياجات", items:()=>[
+    {label:"رجوع", ic:"↩", back:true},
+    {label:"صعب علي التنفس", ic:"🫁", say:"صعب علي التنفس"},
+    {label:"أحتاج شفط", ic:"💨", say:"أحتاج شفط"},
+    {label:"تعال عندي", ic:"🙋", say:"تعال عندي"},
+    {label:"عطشان", ic:"🥤", say:"عطشان، أبي ماء"},
+    {label:"جوعان", ic:"🍽", say:"جوعان"},
+    {label:"الحمام", ic:"🚻", say:"أبي الحمام"},
+    {label:"عدّلوا وضعيتي", ic:"🛏", say:"عدّلوا وضعيتي"},
+    {label:"حرّان", ic:"🥵", say:"حرّان"},
+    {label:"بردان", ic:"🥶", say:"بردان"},
+    {label:"أبي أنام", ic:"😴", say:"أبي أنام"},
+    {label:"الجوال / التلفزيون", ic:"📺", say:"أبي الجوال أو التلفزيون"},
+  ]},
+  pain:{title:"وين الألم؟", items:()=>[
+    {label:"رجوع", ic:"↩", back:true},
+    ...["الرأس","العين","الفم والحلق","الرقبة","الصدر","البطن","الظهر","اليد اليمنى","اليد اليسرى","الرجل اليمنى","الرجل اليسرى"]
+      .map(p=>({label:p, part:p}))
+  ]},
+  painLevel:{title:"قوة الألم", items:()=>[
+    {label:"رجوع", ic:"↩", back:true},
+    {label:"خفيف", ic:"🙂", say:`عندي ألم خفيف في ${ctx.part}`},
+    {label:"متوسط", ic:"😐", say:`عندي ألم متوسط في ${ctx.part}`},
+    {label:"قوي", ic:"😣", say:`عندي ألم قوي في ${ctx.part}`},
+    {label:"قوي جداً", ic:"😫", say:`عندي ألم قوي جداً في ${ctx.part}`},
+  ]},
+  feel:{title:"مشاعر", items:()=>[
+    {label:"رجوع", ic:"↩", back:true},
+    {label:"مرتاح", ic:"😌", say:"أنا مرتاح"},
+    {label:"تعبان", ic:"😩", say:"أنا تعبان"},
+    {label:"خايف", ic:"😨", say:"أنا خايف"},
+    {label:"زعلان", ic:"😔", say:"أنا زعلان"},
+    {label:"مبسوط", ic:"😊", say:"أنا مبسوط"},
+    {label:"طفشان", ic:"😑", say:"أنا طفشان"},
+    {label:"قلقان", ic:"😟", say:"أنا قلقان"},
+    {label:"شكراً", ic:"🙏", say:"شكراً لكم، الله يعطيكم العافية"},
+    {label:"أحبكم", ic:"❤️", say:"أحبكم"},
+  ]},
+  mine:{title:"عباراتي", items:()=>[
+    {label:"رجوع", ic:"↩", back:true},
+    ...S.mine.filter(Boolean).slice(0,11).map(t=>({label:t, say:t}))
+  ]},
+  custom:{title:"سؤال", items:()=>[
+    ...ctx.custom.map(t=>({label:t, say:t})),
+    {label:"شيء ثاني", ic:"➕", say:"شيء ثاني"},
+    {label:"رجوع", ic:"↩", back:true},
+  ]},
+  confirm:{title:"تأكيد", items:()=>[
+    {label:"تأكيد: "+ctx.pending, ic:"✅", confirmYes:true, cls:"yes"},
+    {label:"إلغاء", ic:"❌", back:true, cls:"no"},
+  ]},
+};
+const ctx = {part:"", custom:[], pending:"", pendingStay:false};
+let stack = ["home"];
+const curBoard = () => stack[stack.length-1];
+
+/* ================= المسح ================= */
+const scan = { targets:[], idx:-1, timer:null, cycles:0, gen:0, sub:false, paused:false,
+  frozenBlink:false, frozenFace:false, frozenGaze:false };
+
+function anyOverlay(){ return !!document.querySelector(".overlay.show"); }
+function canRun(){ return !scan.paused && !scan.frozenBlink && !scan.frozenFace && !scan.frozenGaze && !anyOverlay() && scan.targets.length>0; }
+function reschedule(delay){
+  clearTimeout(scan.timer); scan.timer=null;
+  if(canRun()) scan.timer = setTimeout(step, delay ?? S.scanMs);
+}
+function clearHl(){ document.querySelectorAll(".hl").forEach(e=>e.classList.remove("hl")); }
+function highlight(){
+  clearHl();
+  const t = scan.targets[scan.idx]; if(!t) return;
+  t.el.classList.add("hl");
+  if(S.auditory && !msgActive) speak(t.label, true);
+}
+function setTargets(list, sub=false){
+  scan.targets = list; scan.idx = 0; scan.cycles = 0; scan.sub = sub; scan.gen++;
+  highlight();
+  reschedule(S.scanMs*1.5);
+}
+function step(){
+  if(!canRun()) return;
+  scan.idx++;
+  if(scan.idx >= scan.targets.length){
+    scan.idx = 0; scan.cycles++;
+    const limit = scan.sub ? 2 : S.maxCycles;
+    if(scan.cycles >= limit){
+      if(scan.sub){ kbRowScan(); return; }
+      setPaused(true, true); return;
+    }
+  }
+  highlight();
+  reschedule(scan.idx===0 ? S.scanMs*1.5 : S.scanMs);
+}
+function setPaused(p, auto=false){
+  scan.paused = p;
+  $("#pausedNote").style.display = p ? "inline" : "none";
+  $("#bPause").textContent = p ? "▶ تشغيل المسح" : "⏸ إيقاف المسح";
+  if(p){ clearHl(); clearTimeout(scan.timer); }
+  else { scan.cycles=0; scan.idx=0; highlight(); reschedule(S.scanMs*1.5); }
+}
+function select(t){
+  if(!t) return;
+  sndPick();
+  t.el.classList.add("picked");
+  clearTimeout(scan.timer);
+  const g = scan.gen;
+  setTimeout(()=>{ t.el.classList.remove("picked"); if(g===scan.gen) t.pick(); }, 350);
+}
+function pickCurrent(){
+  if(scan.paused){ sndPick(); setPaused(false); return; }
+  select(scan.targets[scan.idx]);
+}
+
+/* ================= عرض اللوحات ================= */
+function nav(id){ stack.push(id); render(); }
+function goBack(){ if(stack.length>1) stack.pop(); render(); }
+function goHome(){ stack=["home"]; render(); }
+
+function cols(n){ return n<=2?2 : n<=4?2 : n<=6?3 : n<=9?3 : 4; }
+function render(){
+  const id = curBoard();
+  $("#boardName").textContent = BOARDS[id]?.title || "كتابة";
+  const board = $("#board");
+  board.innerHTML = ""; board.className = "";
+  $("#typebar").style.display = id==="kb" ? "block" : "none";
+  if(id==="kb"){ renderKb(); return; }
+  const items = BOARDS[id].items();
+  const c = cols(items.length), r = Math.ceil(items.length/c);
+  board.style.gridTemplateColumns = `repeat(${c},1fr)`;
+  board.style.gridTemplateRows = `repeat(${r},1fr)`;
+  const targets = items.map(it=>{
+    const el = document.createElement("div");
+    el.className = "cell" + (it.cls?" "+it.cls:"") + (it.back?" back":"");
+    el.innerHTML = (it.ic?`<span class="ic">${it.ic}</span>`:"") + `<span></span><div class="fill"></div>`;
+    el.children[it.ic?1:0].textContent = it.label;
+    board.appendChild(el);
+    const t = {el, label:it.label, pick:()=>handle(it), gaze:it.gaze};
+    el.addEventListener("click", ()=>select(t));
+    return t;
+  });
+  setTargets(targets);
+}
+function handle(it){
+  if(it.back){ if(curBoard()==="confirm"){ stack.pop(); render(); } else goBack(); return; }
+  if(it.go){ nav(it.go); return; }
+  if(it.part){ ctx.part = it.part; nav("painLevel"); return; }
+  if(it.confirmYes){ stack.pop(); deliver(ctx.pending, ctx.pendingStay); return; }
+  if(it.say){
+    const stay = !!BOARDS[curBoard()].stay;
+    if(S.confirm){ ctx.pending = it.say; ctx.pendingStay = stay; nav("confirm"); return; }
+    deliver(it.say, stay);
+  }
+}
+const hist = [];
+function deliver(text, stay){
+  speakMsg(text);
+  const m = $("#msg"); m.textContent = text;
+  m.classList.remove("fresh"); void m.offsetWidth; m.classList.add("fresh");
+  const t = new Date().toLocaleTimeString("ar-SA",{hour:"2-digit",minute:"2-digit"});
+  hist.unshift(`${t} — ${text}`); hist.length = Math.min(hist.length, 6);
+  $("#history").innerHTML = ""; hist.forEach(h=>{ const d=document.createElement("div"); d.textContent=h; $("#history").appendChild(d); });
+  if(stay) render(); else goHome();
+}
+
+/* ================= لوحة الكتابة ================= */
+let buf = "";
+const KB_LETTERS = ["ا ل ي م و ن","ه ر ت ب ك ع","د س ف ق ح ج","ش ص ط خ ز ة","ث ذ ض غ ظ ء","أ إ آ ى ؤ ئ"].map(r=>r.split(" "));
+const BASE_WORDS = ("ماء أبي أريد ألم تعال شكراً الحمام نعم لا أمي أبوي الدكتور الممرض تعبان مرتاح بطني راسي ظهري رجلي يدي حار بارد "+
+  "أنام النوم التلفزيون الجوال الصلاة القرآن شوي الحين بعدين ليش متى وين كيف أحبك أحبكم الله العافية اقلبني عدلني المخدة البطانية "+
+  "النظارة شفط التنفس الأكسجين الكرسي الستارة النور الباب أكل عصير قهوة شاي حليب دواء ابني بنتي أخوي أختي زوجتي زوجي البيت").split(" ");
+const norm = s => s.replace(/[أإآ]/g,"ا").replace(/ة/g,"ه").replace(/ى/g,"ي");
+function suggestions(){
+  const parts = buf.split(" "); const w = parts[parts.length-1];
+  if(!w) return [];
+  const nw = norm(w), out = [];
+  for(const cand of [...S.learned, ...BASE_WORDS]){
+    if(out.length>=4) break;
+    if(cand!==w && norm(cand).startsWith(nw) && !out.includes(cand)) out.push(cand);
+  }
+  return out;
+}
+function renderTypebar(){
+  const tb = $("#typebar"); tb.textContent = buf;
+  const c = document.createElement("span"); c.className="caret"; tb.appendChild(c);
+}
+function renderKb(){
+  renderTypebar();
+  const board = $("#board"); board.innerHTML=""; board.className="kb"; board.style.gridTemplateColumns=""; board.style.gridTemplateRows="";
+  const rows = [];
+  const sug = suggestions();
+  if(sug.length) rows.push(sug.map(s=>({label:s, cls:"sug", act:()=>{ const p=buf.split(" "); p[p.length-1]=s; buf=p.join(" ")+" "; }})));
+  rows.push([
+    {label:"🔊 انطق", cls:"ctl", act:()=>speakBuf()},
+    {label:"مسافة ␣", cls:"ctl", act:()=>{ if(buf && !buf.endsWith(" ")) buf+=" "; }},
+    {label:"⌫ حذف", cls:"ctl", act:()=>{ buf=buf.slice(0,-1); }},
+    {label:"🗑 مسح الكل", cls:"ctl", act:()=>{ buf=""; }},
+    {label:"🏠 خروج", cls:"ctl", act:()=>{ goHome(); return "nav"; }},
+  ]);
+  KB_LETTERS.forEach(r=>rows.push(r.map(ch=>({label:ch, act:()=>{ buf+=ch; }}))));
+  kbRows = rows.map(r=>{
+    const rowEl = document.createElement("div"); rowEl.className="kb-row";
+    const keys = r.map(k=>{
+      const el = document.createElement("div"); el.className="cell "+(k.cls||"");
+      el.textContent = k.label; el.appendChild(Object.assign(document.createElement("div"),{className:"fill"}));
+      rowEl.appendChild(el);
+      const t = {el, label:k.label, pick:()=>{ const res=k.act(); if(res!=="nav"){ renderKb(); } }};
+      el.addEventListener("click", ev=>{ ev.stopPropagation(); select(t); });
+      return t;
+    });
+    const ret = document.createElement("div"); ret.className="cell ret"; ret.textContent="↩";
+    ret.appendChild(Object.assign(document.createElement("div"),{className:"fill"}));
+    rowEl.appendChild(ret);
+    keys.push({el:ret, label:"رجوع", pick:()=>kbRowScan()});
+    board.appendChild(rowEl);
+    return {el:rowEl, keys, label:r.slice(0,3).map(k=>k.label).join(" ")};
+  });
+  kbRowScan();
+}
+let kbRows = [];
+function kbRowScan(){
+  setTargets(kbRows.map(r=>({el:r.el, label:r.label, pick:()=>setTargets(r.keys, true)})));
+}
+function speakBuf(){
+  const text = buf.trim(); if(!text) return;
+  text.split(/\s+/).forEach(w=>{ if(w.length>1){ S.learned = [w, ...S.learned.filter(x=>x!==w)].slice(0,200); } });
+  save(); buf = "";
+  deliver(text, true);
+}
+
+/* ================= الكاميرا والكشف ================= */
+let landmarker = null, video = $("#video"), running = false;
+const eye = { score:0, closed:false, tClose:0, readyBeeped:false, overBeeped:false, captured:null, capturedGen:-1,
+  lastFace:0, g:0, gazeDir:null, gazeT0:0, gazeLock:false };
+let collector = null, frames = 0, fpsT = now();
+
+async function loadMediaPipe(){
+  const V = "0.10.14";
+  let vision;
+  try { vision = await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V}/vision_bundle.mjs`); }
+  catch(e){ vision = await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V}/+esm`); }
+  const { FaceLandmarker, FilesetResolver } = vision;
+  const files = await FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${V}/wasm`);
+  const opts = (delegate)=>({
+    baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", delegate },
+    runningMode:"VIDEO", numFaces:1, outputFaceBlendshapes:true,
+    minFaceDetectionConfidence:0.5, minFacePresenceConfidence:0.5, minTrackingConfidence:0.5
+  });
+  try { return await FaceLandmarker.createFromOptions(files, opts("GPU")); }
+  catch(e){ return await FaceLandmarker.createFromOptions(files, opts("CPU")); }
+}
+
+async function startCamera(){
+  $("#stCam").textContent = "الكاميرا: جاري التحميل…"; $("#stCam").className="chip warn";
+  const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user", width:{ideal:640}, height:{ideal:480}}, audio:false});
+  video.srcObject = stream; await video.play();
+  landmarker = await loadMediaPipe();
+  running = true;
+  $("#stCam").textContent = "الكاميرا: تعمل"; $("#stCam").className="chip good";
+  let lastVT = -1;
+  const loop = ()=>{
+    if(!running) return;
+    if(video.readyState>=2 && video.currentTime!==lastVT){
+      lastVT = video.currentTime;
+      const t = now();
+      try{ process(landmarker.detectForVideo(video, t), t); }catch(e){ console.error(e); }
+    }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+
+function bs(res){
+  const cats = res.faceBlendshapes?.[0]?.categories; if(!cats) return null;
+  const m = {}; for(const c of cats) m[c.categoryName] = c.score; return m;
+}
+
+function process(res, t){
+  frames++; if(t-fpsT>1000){ $("#fpsTxt").textContent = frames+" إطار/ث"; frames=0; fpsT=t; }
+  const m = bs(res);
+  if(!m){ onNoFace(t); return; }
+  if(scan.frozenFace){ scan.frozenFace=false; reschedule(); }
+  eye.lastFace = t;
+  $("#stFace").textContent = "الوجه: ظاهر ✓"; $("#stFace").className="chip good";
+
+  const L = m.eyeBlinkLeft, R = m.eyeBlinkRight;
+  const raw = S.eyeMode==="max" ? Math.max(L,R) : (L+R)/2;
+  eye.score = eye.score*0.4 + raw*0.6;
+  const graw = (m.eyeLookOutLeft + m.eyeLookInRight) - (m.eyeLookOutRight + m.eyeLookInLeft);
+  eye.g = eye.g*0.6 + graw*0.4;
+
+  updateMeter();
+  if(collector){ collector({blink:eye.score, g:eye.g}, t); return; }
+  if(anyOverlay()) return;
+
+  blinkLogic(t);
+  gazeLogic(t);
+}
+
+function onNoFace(t){
+  if(t - eye.lastFace > 700){
+    $("#stFace").textContent = "الوجه: غير ظاهر"; $("#stFace").className="chip bad";
+    if(!scan.frozenFace){ scan.frozenFace = true; clearTimeout(scan.timer); }
+    if(eye.closed && t - eye.tClose > S.maxLong){ cancelBlink(); }
+  }
+}
+
+function thresholds(){
+  const o = S.calib.open, c = S.calib.closed, span = Math.max(c-o, 0.15);
+  return { on:o+span*0.5, off:o+span*0.32 };
+}
+function updateMeter(){
+  const th = thresholds();
+  $("#meterFill").style.width = Math.min(100, eye.score*100)+"%";
+  $("#meterThr").style.insetInlineEnd = (th.on*100)+"%";
+  $("#eyeState").textContent = eye.closed ? "العين: مغمضة" : "العين: مفتوحة";
+  if(S.gaze.ok){
+    const d = gazeDir(); $("#gazeInd").textContent = d==="right"?"← نظر يمين":d==="left"?"نظر يسار →":"• وسط";
+  }
+  const cm = $("#cMeter"); if(cm) cm.style.width = Math.min(100, eye.score*100)+"%";
+}
+
+function blinkLogic(t){
+  const th = thresholds();
+  if(!eye.closed && eye.score > th.on){
+    eye.closed = true; eye.tClose = t; eye.readyBeeped=false; eye.overBeeped=false;
+    eye.captured = scan.paused ? null : scan.targets[scan.idx]; eye.capturedGen = scan.gen;
+    scan.frozenBlink = true; clearTimeout(scan.timer);
+  } else if(eye.closed && eye.score < th.off){
+    const dur = t - eye.tClose;
+    endBlink(dur);
+  }
+  if(eye.closed){
+    const dur = t - eye.tClose;
+    const f = eye.captured?.el.querySelector(".fill");
+    if(f) f.style.width = Math.min(100, dur/S.minLong*100)+"%";
+    if(!eye.readyBeeped && dur >= S.minLong){ eye.readyBeeped = true; sndReady(); }
+    if(!eye.overBeeped && dur > S.maxLong){ eye.overBeeped = true; sndCancel(); }
+  }
+}
+function clearFills(){ document.querySelectorAll(".fill").forEach(f=>f.style.width="0"); }
+function endBlink(dur){
+  eye.closed = false; scan.frozenBlink = false; clearFills();
+  if(dur >= S.minLong && dur <= S.maxLong){
+    if(scan.paused){ sndPick(); setPaused(false); return; }
+    if(eye.captured && eye.capturedGen===scan.gen){ select(eye.captured); return; }
+  }
+  reschedule();
+}
+function cancelBlink(){ eye.closed=false; scan.frozenBlink=false; clearFills(); reschedule(); }
+
+function gazeDir(){
+  const G = S.gaze; if(!G.ok) return "c";
+  const r = (eye.g - G.C)/(G.R - G.C), l = (eye.g - G.C)/(G.L - G.C);
+  if(r > 0.6) return "right"; if(l > 0.6) return "left"; return "c";
+}
+function gazeLogic(t){
+  const active = S.gazeOn && S.gaze.ok && curBoard()==="yesno" && !eye.closed && !scan.paused;
+  const d = active ? gazeDir() : "c";
+  if(d==="c"){
+    if(eye.gazeDir){ eye.gazeDir=null; clearFills(); }
+    eye.gazeLock = false;
+    if(scan.frozenGaze){ scan.frozenGaze=false; reschedule(); }
+    return;
+  }
+  if(eye.gazeLock) return;
+  const target = scan.targets.find(x=>x.gaze===d); if(!target) return;
+  if(eye.gazeDir!==d){ eye.gazeDir=d; eye.gazeT0=t; clearFills(); }
+  if(!scan.frozenGaze){ scan.frozenGaze=true; clearTimeout(scan.timer); clearHl(); target.el.classList.add("hl"); }
+  const p = (t-eye.gazeT0)/S.gazeDwell;
+  const f = target.el.querySelector(".fill"); if(f) f.style.width = Math.min(100,p*100)+"%";
+  if(p>=1){ eye.gazeLock=true; scan.frozenGaze=false; clearFills(); select(target); }
+}
+
+/* ================= المعايرة ================= */
+const median = a => { const s=[...a].sort((x,y)=>x-y); return s.length ? s[Math.floor(s.length/2)] : 0; };
+function collect(ms, skip, key){
+  return new Promise(res=>{
+    const arr=[]; let t0=null;
+    collector = (v,t)=>{ if(t0===null) t0=t; if(t-t0>skip) arr.push(v[key]); if(t-t0>=ms){ collector=null; res(arr);} };
+  });
+}
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+function cSet(big, sub){ $("#cBig").textContent = big; $("#cSub").textContent = sub||""; }
+let calibBusy = false;
+
+async function calibBlink(){
+  if(!landmarker){ toast("شغّل الكاميرا أولاً"); return; }
+  if(calibBusy) return; calibBusy = true; $("#cResult").textContent="";
+  cSet("افتح عينك وطالع الشاشة", "٣ ثواني…"); speak("افتح عينك وطالع الشاشة"); await wait(1500);
+  const open = await collect(3000, 500, "blink");
+  cSet("غمّض عينك", "خلها مغمضة لين تسمع الصوت"); speak("غمّض عينك"); await wait(1300);
+  const closed = await collect(2500, 600, "blink");
+  tone(880,.3); speak("افتح");
+  const o = median(open), c = median(closed);
+  if(c - o < 0.2){
+    cSet("ما قدرنا نميّز إغماض العين", "جرّب إضاءة أفضل على الوجه، أو قرّب الجهاز، أو غيّر «العين المستخدمة» إلى «أي عين» من الإعدادات.");
+    $("#cResult").textContent = `مفتوحة: ${o.toFixed(2)} — مغمضة: ${c.toFixed(2)}`;
+  } else {
+    S.calib = {ok:true, open:o, closed:c}; save(); updateCalibChip();
+    cSet("تمت معايرة الرمشة ✓", "جرّب الحين: رمشة طويلة لين تسمع «تِك» ثم افتح.");
+    $("#cResult").textContent = `مفتوحة: ${o.toFixed(2)} — مغمضة: ${c.toFixed(2)} — الحد: ${thresholds().on.toFixed(2)}`;
+  }
+  calibBusy = false;
+}
+
+async function calibGaze(){
+  if(!landmarker){ toast("شغّل الكاميرا أولاً"); return; }
+  if(calibBusy) return; calibBusy = true; $("#cResult").textContent="";
+  const dot = $("#dot");
+  const pts = [["C","50%","طالع النقطة اللي في النص"],["R","92%","طالع النقطة اليمين"],["L","8%","طالع النقطة اليسار"]];
+  const vals = {};
+  $("#calib").style.background = "rgba(5,8,10,.55)";
+  for(const [k,x,msg] of pts){
+    dot.style.left = x; dot.classList.add("show");
+    cSet(msg, "ثبّت راسك وحرّك عينك بس"); speak(msg); await wait(1600);
+    vals[k] = median(await collect(2200, 500, "g"));
+    tone(700,.08);
+  }
+  dot.classList.remove("show"); $("#calib").style.background = "";
+  const {C,R,L} = vals;
+  const okR = Math.abs(R-C) > 0.12, okL = Math.abs(L-C) > 0.12, opp = Math.sign(R-C) !== Math.sign(L-C);
+  if(okR && okL && opp){
+    S.gaze = {ok:true, C, R, L}; save(); updateCalibChip();
+    cSet("تمت معايرة النظر ✓", "في لوحة «نعم / لا»: طالع يمين = نعم، يسار = لا.");
+  } else {
+    S.gaze.ok = false; save(); updateCalibChip();
+    cSet("حركة العين يمين/يسار غير واضحة", "عادي — استخدم الرمشة فقط، أو جرّب مرة ثانية مع تثبيت الرأس وتقريب الجهاز.");
+  }
+  $("#cResult").textContent = `وسط ${C.toFixed(2)} — يمين ${R.toFixed(2)} — يسار ${L.toFixed(2)}`;
+  calibBusy = false;
+}
+function updateCalibChip(){
+  const el = $("#stCal");
+  if(S.calib.ok){ el.textContent = "المعايرة: ✓ رمشة" + (S.gaze.ok?" + نظر":""); el.className="chip good"; }
+  else { el.textContent = "المعايرة: لم تتم"; el.className="chip warn"; }
+}
+
+/* ================= النوافذ والأزرار ================= */
+function show(id){ $(id).classList.add("show"); clearTimeout(scan.timer); clearHl(); }
+function hide(id){ $(id).classList.remove("show"); if(!anyOverlay()){ if(!scan.paused){ highlight(); reschedule(S.scanMs*1.5);} } }
+
+$("#bStart").onclick = async ()=>{
+  actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+  $("#bStart").disabled = true; $("#bStart").textContent = "جاري التحميل…"; $("#startErr").textContent="";
+  try{
+    await startCamera();
+    keepAwake();
+    hide("#ovStart");
+    if(!S.calib.ok){ show("#calib"); cSet("لنبدأ بمعايرة الرمشة","المرافق يضغط «١) معايرة الرمشة»"); }
+  }catch(e){
+    console.error(e);
+    $("#startErr").textContent = "ما قدرنا نشغّل الكاميرا أو نحمّل نموذج كشف الوجه. تأكد من السماح للكاميرا، ومن الاتصال بالإنترنت أول مرة، وأن الصفحة مفتوحة في Chrome. ("+(e.message||e)+")";
+    $("#stCam").textContent="الكاميرا: خطأ"; $("#stCam").className="chip bad";
+    $("#bStart").disabled=false; $("#bStart").textContent="▶ إعادة المحاولة";
+  }
+};
+$("#bNoCam").onclick = ()=>{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); hide("#ovStart"); toast("وضع التجربة: زر المسافة = رمشة"); };
+
+$("#bPause").onclick = ()=> setPaused(!scan.paused);
+$("#bHome").onclick = ()=> goHome();
+$("#bCalib").onclick = ()=>{ show("#calib"); cSet("المعايرة","اختر نوع المعايرة"); $("#cResult").textContent=""; };
+$("#cBlink").onclick = calibBlink;
+$("#cGaze").onclick = calibGaze;
+$("#cClose").onclick = ()=>{ if(!calibBusy) hide("#calib"); };
+$("#camToggle").onclick = e=>{ e.preventDefault(); $("#cam").classList.toggle("min"); e.target.textContent = $("#cam").classList.contains("min")?"إظهار":"تصغير"; };
+
+document.addEventListener("keydown", e=>{
+  if(e.target.matches("input,textarea,select")) return;
+  if(anyOverlay()) return;
+  if(e.code==="Space" || e.code==="Enter"){ e.preventDefault(); pickCurrent(); }
+});
+
+/* الإعدادات */
+const SF = [["#sScan","scanMs",v=>v+" ms",Number],["#sMin","minLong",v=>v+" ms",Number],["#sMax","maxLong",v=>(v/1000)+" ث",Number],
+  ["#sDwell","gazeDwell",v=>v+" ms",Number],["#sRate","rate",v=>v,Number],["#sFont","font",v=>Math.round(v*100)+"%",Number]];
+function openSettings(){
+  SF.forEach(([sel,key,fmt])=>{ const el=$(sel); el.value=S[key]; const lab=el.nextElementSibling; const up=()=>lab.textContent=" "+fmt(el.value); el.oninput=up; up(); });
+  $("#sCycles").value = String(S.maxCycles); $("#sEye").value=S.eyeMode; $("#sAud").value=S.auditory?"1":"0";
+  $("#sConf").value=S.confirm?"1":"0"; $("#sGaze").value=S.gazeOn?"1":"0"; $("#sMine").value=S.mine.join("\n");
+  pickVoice();
+  $("#voiceNote").textContent = arVoice ? `الصوت المستخدم: ${arVoice.name} (${arVoice.lang})` : "⚠ ما فيه صوت عربي مثبّت في هذا الجهاز/المتصفح. ثبّت صوت عربي من إعدادات النظام (تحويل النص إلى كلام) أو استخدم Chrome.";
+  show("#ovSettings");
+}
+$("#bSettings").onclick = openSettings;
+$("#sSave").onclick = ()=>{
+  SF.forEach(([sel,key,,cast])=> S[key]=cast($(sel).value));
+  if(S.maxLong < S.minLong+500) S.maxLong = S.minLong+500;
+  S.maxCycles=Number($("#sCycles").value); S.eyeMode=$("#sEye").value; S.auditory=$("#sAud").value==="1";
+  S.confirm=$("#sConf").value==="1"; S.gazeOn=$("#sGaze").value==="1";
+  S.mine = $("#sMine").value.split("\n").map(s=>s.trim()).filter(Boolean).slice(0,11);
+  save(); applyFont(); hide("#ovSettings"); render();
+  toast("تم الحفظ" + ( $("#sEye").dataset.prev && $("#sEye").dataset.prev!==S.eyeMode ? " — أعد معايرة الرمشة لأنك غيّرت العين" : ""));
+};
+$("#sEye").addEventListener("focus", e=> e.target.dataset.prev = S.eyeMode);
+$("#sTestVoice").onclick = ()=> speak("مرحباً، هذا صوت التطبيق");
+$("#sReset").onclick = ()=>{ const c=S.calib, g=S.gaze, l=S.learned; S=structuredClone(DEFAULTS); S.calib=c; S.gaze=g; S.learned=l; save(); applyFont(); openSettings(); toast("رجعت الإعدادات الافتراضية (المعايرة محفوظة)"); };
+function applyFont(){ document.documentElement.style.setProperty("--fs", S.font); }
+
+/* سؤال سريع */
+function extractOptions(q){
+  q = q.replace(/[؟?!.،]/g," ").replace(/\s+/g," ").trim();
+  const parts = q.split(/\s+(?:ولا|والا|وإلا|أو|او|أم)\s+/);
+  if(parts.length < 2) return [];
+  const lead = /^(?:هل\s+)?(?:تبي|تبغى|تبغي|تبين|تبغين|تريد|تريدين|ودك|ودّك|تحب|تحبين|أجيب لك|اجيب لك|أسوي لك|اسوي لك|تفضل|تفضلين|تشرب|تاكل|تأكل)\s+/;
+  parts[0] = parts[0].replace(lead,"").replace(lead,"");
+  return parts.map(s=>s.trim()).filter(Boolean).slice(0,8);
+}
+$("#bQuick").onclick = ()=>{ $("#qText").value=""; $("#qOpts").value=""; $("#qNote").textContent=""; show("#ovQuick"); $("#qText").focus(); };
+$("#qExtract").onclick = ()=>{
+  const o = extractOptions($("#qText").value);
+  if(o.length){ $("#qOpts").value = o.join("\n"); $("#qNote").textContent=""; }
+  else $("#qNote").textContent = "ما لقينا «ولا/أو» في السؤال. اكتب الخيارات بنفسك أو استخدم «سؤال نعم / لا».";
+};
+$("#qText").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("#qExtract").click(); } });
+$("#qGo").onclick = ()=>{
+  let opts = $("#qOpts").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  if(!opts.length) opts = extractOptions($("#qText").value);
+  if(!opts.length){ $("#qNote").textContent="أضف خيار واحد على الأقل."; return; }
+  ctx.custom = opts.slice(0,10);
+  const q = $("#qText").value.trim();
+  if(q){ $("#msg").textContent = "❓ " + q; }
+  hide("#ovQuick"); stack=["home","custom"]; render();
+};
+$("#qYN").onclick = ()=>{ const q=$("#qText").value.trim(); if(q) $("#msg").textContent="❓ "+q; hide("#ovQuick"); stack=["home","yesno"]; render(); };
+$("#qCancel").onclick = ()=> hide("#ovQuick");
+(function setupMic(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const b = $("#qMic");
+  if(!SR){ b.style.display="none"; return; }
+  b.onclick = ()=>{
+    const rec = new SR(); rec.lang="ar-SA"; rec.interimResults=false; rec.maxAlternatives=1;
+    b.textContent="🔴"; $("#qNote").textContent="تكلّم الحين…";
+    rec.onresult = e=>{ const tx=e.results[0][0].transcript; $("#qText").value=tx; const o=extractOptions(tx); if(o.length) $("#qOpts").value=o.join("\n"); $("#qNote").textContent=""; };
+    rec.onerror = e=>{ $("#qNote").textContent = "ما اشتغل المايك ("+e.error+"). اكتب السؤال بدلاً منه."; };
+    rec.onend = ()=>{ b.textContent="🎤"; };
+    try{ rec.start(); }catch(err){ b.textContent="🎤"; }
+  };
+})();
+
+/* إبقاء الشاشة شغالة */
+let wakeLock = null;
+async function keepAwake(){
+  try{ if("wakeLock" in navigator){ wakeLock = await navigator.wakeLock.request("screen"); } }catch(e){}
+}
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && running) keepAwake(); });
+
+/* ================= بدء ================= */
+applyFont(); updateCalibChip(); render();
+</script>
+</body>
+</html>
